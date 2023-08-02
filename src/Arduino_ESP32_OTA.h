@@ -77,6 +77,7 @@ public:
   virtual ~Arduino_ESP32_OTA() { }
 
   Arduino_ESP32_OTA::Error begin();
+  Arduino_ESP32_OTA::Error begin(const char* filename);
   void setCACert (const char *rootCA);
   int download(const char * ota_url);
   uint8_t read_byte_from_network();
@@ -91,6 +92,7 @@ private:
   size_t _ota_size;
   uint32_t _crc32;
   const char * _ca_cert;
+  FILE* _file;
 };
 
 #endif /* ARDUINO_ESP32_OTA_H_ */

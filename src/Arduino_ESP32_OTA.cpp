@@ -20,6 +20,7 @@
  ******************************************************************************/
 
 #include <Update.h>
+#include <SPIFFS.h>
 #include "Arduino_ESP32_OTA.h"
 #include "tls/amazon_root_ca.h"
 #include "decompress/lzss.h"
@@ -56,6 +57,7 @@ Arduino_ESP32_OTA::Arduino_ESP32_OTA()
 ,_ota_size(0)
 ,_crc32(0)
 ,_ca_cert{amazon_root_ca}
+,_file{nullptr}
 {
 
 }
@@ -73,6 +75,27 @@ Arduino_ESP32_OTA::Error Arduino_ESP32_OTA::begin()
   
   if(!Update.begin(UPDATE_SIZE_UNKNOWN)) {
     DEBUG_ERROR("%s: failed to initialize flash update", __FUNCTION__);
+    return Error::OtaStorageInit;
+  }
+  return Error::None;
+}
+
+Arduino_ESP32_OTA::Error Arduino_ESP32_OTA::begin(const char* filename)
+{
+  _esp_ota_obj_ptr = this;
+
+  /* ... initialize CRC ... */
+  _crc32 = 0xFFFFFFFF;
+
+  if(!SPIFFS.begin(true)) {
+    DEBUG_ERROR("%s: failed to initialize SPIFFS", __FUNCTION__);
+    return Error::OtaStorageInit;
+  }
+
+  _file = fopen(filename, "wb");
+
+  if(!_file) {
+    DEBUG_ERROR("%s: failed to write SPIFFS", __FUNCTION__);
     return Error::OtaStorageInit;
   }
   return Error::None;
@@ -105,7 +128,11 @@ uint8_t Arduino_ESP32_OTA::read_byte_from_network()
 
 void Arduino_ESP32_OTA::write_byte_to_flash(uint8_t data)
 {
-  Update.write(&data, 1);
+  if(_file) {
+    fwrite(&data, sizeof(data), 1, _file);
+  } else {
+    Update.write(&data, 1);
+  }
 }
 
 int Arduino_ESP32_OTA::download(const char * ota_url)
@@ -218,9 +245,13 @@ Arduino_ESP32_OTA::Error Arduino_ESP32_OTA::update()
     return Error::OtaHeaderCrc;
   }
 
-  if (!Update.end(true)) {
-    DEBUG_ERROR("%s: Failure to apply OTA update", __FUNCTION__);
-    return Error::OtaStorageEnd;
+  if(_file) {
+    fclose(_file);
+  } else {
+    if (!Update.end(true)) {
+      DEBUG_ERROR("%s: Failure to apply OTA update", __FUNCTION__);
+      return Error::OtaStorageEnd;
+    }
   }
 
   return Error::None;
