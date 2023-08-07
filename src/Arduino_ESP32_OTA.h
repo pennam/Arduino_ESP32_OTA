@@ -31,6 +31,9 @@
  ******************************************************************************/
 #if defined (ARDUINO_NANO_ESP32)
   #define ARDUINO_ESP32_OTA_MAGIC 0x23410070
+#elif defined (ARDUINO_UNOR4WIFI_USB_BRIDGE)
+  #define ARDUINO_ESP32_OTA_MAGIC 0x45535033
+  #define ARDUINO_RA4M1_OTA_MAGIC 0x23411002
 #else
   #define ARDUINO_ESP32_OTA_MAGIC 0x45535033
 #endif
