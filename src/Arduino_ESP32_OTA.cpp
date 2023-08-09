@@ -72,6 +72,9 @@ Arduino_ESP32_OTA::Error Arduino_ESP32_OTA::begin()
 
   /* ... initialize CRC ... */
   _crc32 = 0xFFFFFFFF;
+
+  _ota_size = 0;
+  _ota_header = {0};
   
   if(!Update.begin(UPDATE_SIZE_UNKNOWN)) {
     DEBUG_ERROR("%s: failed to initialize flash update", __FUNCTION__);
@@ -87,7 +90,10 @@ Arduino_ESP32_OTA::Error Arduino_ESP32_OTA::begin(const char* filename)
   /* ... initialize CRC ... */
   _crc32 = 0xFFFFFFFF;
 
-  if(!SPIFFS.begin(true)) {
+  _ota_size = 0;
+  _ota_header = {0};
+
+  if(!SPIFFS.begin()) {
     DEBUG_ERROR("%s: failed to initialize SPIFFS", __FUNCTION__);
     return Error::OtaStorageInit;
   }
