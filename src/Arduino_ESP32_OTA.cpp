@@ -70,6 +70,11 @@ Arduino_ESP32_OTA::Error Arduino_ESP32_OTA::begin()
 {
   _esp_ota_obj_ptr = this;
 
+  if(_client != nullptr) {
+    delete _client;
+    _client = nullptr;
+  }
+
   /* ... initialize CRC ... */
   _crc32 = 0xFFFFFFFF;
 
@@ -86,6 +91,11 @@ Arduino_ESP32_OTA::Error Arduino_ESP32_OTA::begin()
 Arduino_ESP32_OTA::Error Arduino_ESP32_OTA::begin(const char* filename)
 {
   _esp_ota_obj_ptr = this;
+
+  if(_client != nullptr) {
+    delete _client;
+    _client = nullptr;
+  }
 
   /* ... initialize CRC ... */
   _crc32 = 0xFFFFFFFF;
