@@ -259,6 +259,7 @@ Arduino_ESP32_OTA::Error Arduino_ESP32_OTA::update()
 
   if(_file) {
     fclose(_file);
+    SPIFFS.end();
   } else {
     if (!Update.end(true)) {
       DEBUG_ERROR("%s: Failure to apply OTA update", __FUNCTION__);
