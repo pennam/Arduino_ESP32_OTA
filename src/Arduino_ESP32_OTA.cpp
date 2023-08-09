@@ -263,6 +263,11 @@ Arduino_ESP32_OTA::Error Arduino_ESP32_OTA::update()
     return Error::OtaHeaderCrc;
   }
 
+  if(_client != nullptr) {
+    delete _client;
+    _client = nullptr;
+  }
+
   if(_file) {
     fclose(_file);
     SPIFFS.end();
