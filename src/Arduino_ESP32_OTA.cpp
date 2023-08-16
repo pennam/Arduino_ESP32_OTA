@@ -58,6 +58,7 @@ Arduino_ESP32_OTA::Arduino_ESP32_OTA()
 ,_crc32(0)
 ,_ca_cert{amazon_root_ca}
 ,_file{nullptr}
+,_spiffs(false)
 {
 
 }
@@ -80,6 +81,8 @@ Arduino_ESP32_OTA::Error Arduino_ESP32_OTA::begin()
 
   _ota_size = 0;
   _ota_header = {0};
+
+  _spiffs = false;
   
   if(!Update.begin(UPDATE_SIZE_UNKNOWN)) {
     DEBUG_ERROR("%s: failed to initialize flash update", __FUNCTION__);
@@ -88,7 +91,7 @@ Arduino_ESP32_OTA::Error Arduino_ESP32_OTA::begin()
   return Error::None;
 }
 
-Arduino_ESP32_OTA::Error Arduino_ESP32_OTA::begin(const char* filename)
+Arduino_ESP32_OTA::Error Arduino_ESP32_OTA::begin(const char* file_path)
 {
   _esp_ota_obj_ptr = this;
 
@@ -108,12 +111,13 @@ Arduino_ESP32_OTA::Error Arduino_ESP32_OTA::begin(const char* filename)
     return Error::OtaStorageInit;
   }
 
-  _file = fopen(filename, "wb");
-
-  if(!_file) {
-    DEBUG_ERROR("%s: failed to write SPIFFS", __FUNCTION__);
-    return Error::OtaStorageInit;
+  if(SPIFFS.exists(file_path)) {
+    SPIFFS.remove(file_path);
   }
+
+  _spiffs = true;
+
+  SPIFFS.end();
   return Error::None;
 }
 
@@ -144,7 +148,7 @@ uint8_t Arduino_ESP32_OTA::read_byte_from_network()
 
 void Arduino_ESP32_OTA::write_byte_to_flash(uint8_t data)
 {
-  if(_file) {
+  if(_spiffs) {
     fwrite(&data, sizeof(data), 1, _file);
   } else {
     Update.write(&data, 1);
