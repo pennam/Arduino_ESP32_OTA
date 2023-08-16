@@ -254,24 +254,12 @@ int Arduino_ESP32_OTA::download(const char * ota_url)
     return static_cast<int>(Error::OtaHeaderLength);
   }
 
-#if defined (ARDUINO_UNOR4WIFI_USB_BRIDGE)
-  if(_file) {
-    if(_ota_header.header.magic_number != ARDUINO_RA4M1_OTA_MAGIC) {
-      return static_cast<int>(Error::OtaHeaterMagicNumber);
-    }
-  } else {
-    if (_ota_header.header.magic_number != ARDUINO_ESP32_OTA_MAGIC) {
-      return static_cast<int>(Error::OtaHeaterMagicNumber);
-    }
-  }
-#else
   if (_ota_header.header.magic_number != ARDUINO_ESP32_OTA_MAGIC)
   {
     delete _client;
     _client = nullptr;
     return static_cast<int>(Error::OtaHeaterMagicNumber);
   }
-#endif
 
   /* ... start CRC32 from OTA MAGIC ... */
   _crc32 = crc_update(_crc32, &_ota_header.header.magic_number, 12);
