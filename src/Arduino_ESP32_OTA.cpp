@@ -160,6 +160,147 @@ void Arduino_ESP32_OTA::write_byte_to_flash(uint8_t data)
   }
 }
 
+int Arduino_ESP32_OTA::download(const char * ota_url, const char* file_path)
+{
+  URI url(ota_url);
+  int port = 0;
+
+  if(!_spiffs) {
+    DEBUG_ERROR("%s: Wrong configuration spiffs: %d url: %s path: %s", __FUNCTION__, _spiffs, ota_url, file_path);
+    return static_cast<int>(Error::StorageConfig);
+  }
+
+  if (url.protocol_ == "http") {
+    _client = new WiFiClient();
+    port = 80;
+  } else if (url.protocol_ == "https") {
+    _client = new WiFiClientSecure();
+    static_cast<WiFiClientSecure*>(_client)->setCACert(_ca_cert);
+    port = 443;
+  } else {
+    DEBUG_ERROR("%s: Failed to parse OTA URL %s", __FUNCTION__, ota_url);
+    return static_cast<int>(Error::UrlParseError);
+  }
+
+  if (!_client->connect(url.host_.c_str(), port))
+  {
+    DEBUG_ERROR("%s: Connection failure with OTA storage server %s", __FUNCTION__, url.host_.c_str());
+    delete _client;
+    _client = nullptr;
+    return static_cast<int>(Error::ServerConnectError);
+  }
+
+  _client->println(String("GET ") + url.path_.c_str() + " HTTP/1.1");
+  _client->println(String("Host: ") + url.host_.c_str());
+  _client->println("Connection: close");
+  _client->println();
+
+  /* Receive HTTP header. */
+  String http_header;
+  bool is_header_complete     = false,
+       is_http_header_timeout = false;
+  for (unsigned long const start = millis(); !is_header_complete;)
+  {
+    is_http_header_timeout = (millis() - start) > ARDUINO_ESP32_OTA_HTTP_HEADER_RECEIVE_TIMEOUT_ms;
+    if (is_http_header_timeout) break;
+
+    if (_client->available())
+    {
+      char const c = _client->read();
+
+      http_header += c;
+      if (http_header.endsWith("\r\n\r\n"))
+        is_header_complete = true;
+    }
+  }
+
+  if (!is_header_complete)
+  {
+    DEBUG_ERROR("%s: Error receiving HTTP header %s", __FUNCTION__, is_http_header_timeout ? "(timeout)":"");
+    delete _client;
+    _client = nullptr;
+    return static_cast<int>(Error::HttpHeaderError);
+  }
+
+  /* TODO check http header 200 or else*/
+
+  /* Extract concent length from HTTP header. A typical entry looks like
+   *   "Content-Length: 123456"
+   */
+  char const * content_length_ptr = strstr(http_header.c_str(), "Content-Length");
+  if (!content_length_ptr)
+  {
+    DEBUG_ERROR("%s: Failure to extract content length from http header", __FUNCTION__);
+    delete _client;
+    _client = nullptr;
+    return static_cast<int>(Error::ParseHttpHeader);
+  }
+  /* Find start of numerical value. */
+  char * ptr = const_cast<char *>(content_length_ptr);
+  for (; (*ptr != '\0') && !isDigit(*ptr); ptr++) { }
+  /* Extract numerical value. */
+  String content_length_str;
+  for (; isDigit(*ptr); ptr++) content_length_str += *ptr;
+  int const content_length_val = atoi(content_length_str.c_str());
+  DEBUG_VERBOSE("%s: Length of OTA binary according to HTTP header = %d bytes", __FUNCTION__, content_length_val);
+
+  /* Read the OTA header ... */
+  _client->read(_ota_header.buf, sizeof(OtaHeader));
+
+  /* ... and check first length ... */
+  if (_ota_header.header.len != (content_length_val - sizeof(_ota_header.header.len) - sizeof(_ota_header.header.crc32))) {
+    delete _client;
+    _client = nullptr;
+    return static_cast<int>(Error::OtaHeaderLength);
+  }
+
+  if(_ota_header.header.magic_number != ARDUINO_RA4M1_OTA_MAGIC) {
+    delete _client;
+    _client = nullptr;
+    return static_cast<int>(Error::OtaHeaterMagicNumber);
+  }
+
+  /* ... start CRC32 from OTA MAGIC ... */
+  _crc32 = crc_update(_crc32, &_ota_header.header.magic_number, 12);
+
+  if(!SPIFFS.begin()) {
+    DEBUG_ERROR("%s: failed to initialize SPIFFS", __FUNCTION__);
+    delete _client;
+    _client = nullptr;
+    return static_cast<int>(Error::OtaStorageInit);
+  }
+
+  String spiffs_path = String("/spiffs") + String(file_path);
+  _file = fopen(spiffs_path.c_str(), "wb");
+
+  if(!_file) {
+    DEBUG_ERROR("%s: failed to write SPIFFS", __FUNCTION__);
+    delete _client;
+    _client = nullptr;
+    return static_cast<int>(Error::OtaStorageInit);
+  }
+
+  /* Download and decode OTA file */
+  _ota_size = lzss_download(read_byte, write_byte, content_length_val - sizeof(_ota_header));
+
+  if(_ota_size <= content_length_val - sizeof(_ota_header))
+  {
+    delete _client;
+    _client = nullptr;
+    fclose(_file);
+    _file = nullptr;
+    SPIFFS.end();
+    return static_cast<int>(Error::OtaDownload);
+  }
+
+  delete _client;
+  _client = nullptr;
+  fclose(_file);
+  _file = nullptr;
+  SPIFFS.end();
+  return _ota_size;
+}
+
 int Arduino_ESP32_OTA::download(const char * ota_url)
 {
   URI url(ota_url);

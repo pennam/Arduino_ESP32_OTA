@@ -83,6 +83,7 @@ public:
   Arduino_ESP32_OTA::Error begin(const char* file_path);
   void setCACert (const char *rootCA);
   int download(const char * ota_url);
+  int download(const char * ota_url, const char* file_path);
   uint8_t read_byte_from_network();
   void write_byte_to_flash(uint8_t data);
   Arduino_ESP32_OTA::Error verify();
