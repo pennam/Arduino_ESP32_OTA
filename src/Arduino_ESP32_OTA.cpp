@@ -263,7 +263,7 @@ int Arduino_ESP32_OTA::download(const char * ota_url)
   return _ota_size;
 }
 
-Arduino_ESP32_OTA::Error Arduino_ESP32_OTA::update()
+Arduino_ESP32_OTA::Error Arduino_ESP32_OTA::verify()
 {
   /* ... then finalise ... */
   _crc32 ^= 0xFFFFFFFF;
@@ -273,19 +273,14 @@ Arduino_ESP32_OTA::Error Arduino_ESP32_OTA::update()
     return Error::OtaHeaderCrc;
   }
 
-  if(_client != nullptr) {
-    delete _client;
-    _client = nullptr;
-  }
+  return Error::None;
+}
 
-  if(_file) {
-    fclose(_file);
-    SPIFFS.end();
-  } else {
-    if (!Update.end(true)) {
-      DEBUG_ERROR("%s: Failure to apply OTA update", __FUNCTION__);
-      return Error::OtaStorageEnd;
-    }
+Arduino_ESP32_OTA::Error Arduino_ESP32_OTA::update()
+{
+  if (!Update.end(true)) {
+    DEBUG_ERROR("%s: Failure to apply OTA update. Error: %s", __FUNCTION__, Update.errorString());
+    return Error::OtaStorageEnd;
   }
 
   return Error::None;
