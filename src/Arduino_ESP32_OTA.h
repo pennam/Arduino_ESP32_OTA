@@ -63,6 +63,7 @@ public:
   enum class Error : int
   {
     None                 =  0,
+    StorageConfig        = -1,
     NoOtaStorage         = -2,
     OtaStorageInit       = -3,
     OtaStorageEnd        = -4,

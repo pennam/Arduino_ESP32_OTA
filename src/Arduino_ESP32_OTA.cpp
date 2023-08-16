@@ -165,6 +165,11 @@ int Arduino_ESP32_OTA::download(const char * ota_url)
   URI url(ota_url);
   int port = 0;
 
+  if(_spiffs) {
+    DEBUG_ERROR("%s: Wrong configuration spiffs: %d", __FUNCTION__, _spiffs);
+    return static_cast<int>(Error::StorageConfig);
+  }
+
   if (url.protocol_ == "http") {
     _client = new WiFiClient();
     port = 80;
