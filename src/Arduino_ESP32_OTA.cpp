@@ -47,13 +47,12 @@ Arduino_ESP32_OTA::Arduino_ESP32_OTA()
 
 Arduino_ESP32_OTA::Error Arduino_ESP32_OTA::begin()
 {
+  /* initialize private variables */
+  otaInit();
 
   /* ... initialize CRC ... */
-  _crc32 = 0xFFFFFFFF;
+  crc32Init();
 
-  /* initialize private variables */
-  _ota_size = 0;
-  _ota_header = {0};
 
   if(Update.isRunning()) {
     Update.abort();
@@ -93,7 +92,7 @@ uint8_t Arduino_ESP32_OTA::read_byte_from_network()
     }
     if (_client->available()) {
       const uint8_t data = _client->read();
-      _crc32 = crc_update(_crc32, &data, 1);
+      crc32Update(data);
       return data;
     }
   }
@@ -263,10 +262,10 @@ int Arduino_ESP32_OTA::download(const char * ota_url)
 
 Arduino_ESP32_OTA::Error Arduino_ESP32_OTA::update()
 {
-  /* ... then finalise ... */
-  _crc32 ^= 0xFFFFFFFF;
+  /* ... then finalize ... */
+  crc32Finalize();
 
-  if(_crc32 != _ota_header.header.crc32) {
+  if(!crc32Verify()) {
     DEBUG_ERROR("%s: CRC32 mismatch", __FUNCTION__);
     return Error::OtaHeaderCrc;
   }
@@ -282,4 +281,34 @@ Arduino_ESP32_OTA::Error Arduino_ESP32_OTA::update()
 void Arduino_ESP32_OTA::reset()
 {
   ESP.restart();
+}
+
+/******************************************************************************
+   PROTECTED MEMBER FUNCTIONS
+ ******************************************************************************/
+
+void Arduino_ESP32_OTA::otaInit()
+{
+  _ota_size = 0;
+  _ota_header = {0};
+}
+
+void Arduino_ESP32_OTA::crc32Init()
+{
+  _crc32 = 0xFFFFFFFF;
+}
+
+void Arduino_ESP32_OTA::crc32Update(const uint8_t data)
+{
+  _crc32 = crc_update(_crc32, &data, 1);
+}
+
+void Arduino_ESP32_OTA::crc32Finalize()
+{
+  _crc32 ^= 0xFFFFFFFF;
+}
+
+bool Arduino_ESP32_OTA::crc32Verify()
+{
+  return (_crc32 == _ota_header.header.crc32);
 }
