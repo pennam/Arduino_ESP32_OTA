@@ -37,6 +37,7 @@ Arduino_ESP32_OTA::Arduino_ESP32_OTA()
 ,_crc32(0)
 ,_ca_cert{amazon_root_ca}
 ,_ca_cert_bundle{nullptr}
+,_magic(0)
 {
 
 }
@@ -45,7 +46,7 @@ Arduino_ESP32_OTA::Arduino_ESP32_OTA()
    PUBLIC MEMBER FUNCTIONS
  ******************************************************************************/
 
-Arduino_ESP32_OTA::Error Arduino_ESP32_OTA::begin()
+Arduino_ESP32_OTA::Error Arduino_ESP32_OTA::begin(uint32_t magic)
 {
   /* initialize private variables */
   otaInit();
@@ -53,6 +54,8 @@ Arduino_ESP32_OTA::Error Arduino_ESP32_OTA::begin()
   /* ... initialize CRC ... */
   crc32Init();
 
+  /* ... configure board Magic number */
+  setMagic(magic);
 
   if(Update.isRunning()) {
     Update.abort();
@@ -78,6 +81,11 @@ void Arduino_ESP32_OTA::setCACertBundle (const uint8_t * bundle)
   if(bundle != nullptr) {
     _ca_cert_bundle = bundle;
   }
+}
+
+void Arduino_ESP32_OTA::setMagic(uint32_t magic)
+{
+  _magic = magic;
 }
 
 uint8_t Arduino_ESP32_OTA::read_byte_from_network()
@@ -235,7 +243,7 @@ int Arduino_ESP32_OTA::download(const char * ota_url)
   }
 
   /* ... and OTA magic number */
-  if (_ota_header.header.magic_number != ARDUINO_ESP32_OTA_MAGIC)
+  if (_ota_header.header.magic_number != _magic)
   {
     delete _client;
     _client = nullptr;
