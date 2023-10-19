@@ -232,6 +232,7 @@ int Arduino_ESP32_OTA::download(const char * ota_url)
   if (is_ota_header_timeout) {
     delete _client;
     _client = nullptr;
+    DEBUG_ERROR("%s: Timeout downloading OTA header", __FUNCTION__);
     return static_cast<int>(Error::OtaHeaderTimeout);
   }
 
@@ -239,6 +240,7 @@ int Arduino_ESP32_OTA::download(const char * ota_url)
   if (_ota_header.header.len != (content_length_val - sizeof(_ota_header.header.len) - sizeof(_ota_header.header.crc32))) {
     delete _client;
     _client = nullptr;
+    DEBUG_ERROR("%s: Error: OTA header length field not matches HTTP content length", __FUNCTION__);
     return static_cast<int>(Error::OtaHeaderLength);
   }
 
@@ -247,6 +249,7 @@ int Arduino_ESP32_OTA::download(const char * ota_url)
   {
     delete _client;
     _client = nullptr;
+    DEBUG_ERROR("%s: Error: OTA file has wrong magic number", __FUNCTION__);
     return static_cast<int>(Error::OtaHeaterMagicNumber);
   }
 
@@ -254,6 +257,7 @@ int Arduino_ESP32_OTA::download(const char * ota_url)
   _crc32 = crc_update(_crc32, &_ota_header.header.magic_number, 12);
 
   /* Download and decode OTA file */
+  DEBUG_VERBOSE("%s: Start OTA file download", __FUNCTION__);
   _ota_size = lzss_download(this, content_length_val - sizeof(_ota_header));
 
   if(_ota_size <= content_length_val - sizeof(_ota_header))
@@ -282,7 +286,6 @@ Arduino_ESP32_OTA::Error Arduino_ESP32_OTA::update()
     DEBUG_ERROR("%s: Failure to apply OTA update", __FUNCTION__);
     return Error::OtaStorageEnd;
   }
-
   return Error::None;
 }
 
